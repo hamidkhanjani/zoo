@@ -52,7 +52,7 @@ public class AnimalController extends BaseController<Animal> {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{id}/remove")
+    @DeleteMapping("/{id}/remove")
     @Operation(summary = "Remove animal from its current room",
             description = "Clears the animal's 'roomId' and the 'located' date.")
     public ResponseEntity<Animal> remove(@Parameter(description = "Animal id") @PathVariable String id) {
@@ -72,7 +72,7 @@ public class AnimalController extends BaseController<Animal> {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{id}/favorites/unassign")
+    @DeleteMapping("/{id}/favorites/unassign")
     @Operation(summary = "Unassign a favorite room",
             description = "Removes the room id from the animal's favorites.")
     public ResponseEntity<Animal> unassignFavorite(

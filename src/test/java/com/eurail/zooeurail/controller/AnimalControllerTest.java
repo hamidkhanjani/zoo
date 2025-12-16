@@ -94,7 +94,7 @@ class AnimalControllerTest {
         Mockito.verify(animalService).delete("a-5");
     }
 
-    // --- Animal-specific endpoints ---
+
 
     @Test
     void place_returns_200_or_404() throws Exception {
@@ -151,11 +151,11 @@ class AnimalControllerTest {
         Mockito.when(animalService.removeFromRoom("a-3")).thenReturn(Optional.of(afterRemove));
         Mockito.when(animalService.removeFromRoom("missing")).thenReturn(Optional.empty());
 
-        mvc.perform(post("/api/animals/{id}/remove", "a-3"))
+        mvc.perform(delete("/api/animals/{id}/remove", "a-3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roomId", Matchers.nullValue()));
 
-        mvc.perform(post("/api/animals/{id}/remove", "missing"))
+        mvc.perform(delete("/api/animals/{id}/remove", "missing"))
                 .andExpect(status().isNotFound());
     }
 
@@ -170,7 +170,7 @@ class AnimalControllerTest {
         mvc.perform(post("/api/animals/{id}/favorites/assign", "a-4").param("roomId", "r-1"))
                 .andExpect(status().isOk());
 
-        mvc.perform(post("/api/animals/{id}/favorites/unassign", "a-4").param("roomId", "r-1"))
+        mvc.perform(delete("/api/animals/{id}/favorites/unassign", "a-4").param("roomId", "r-1"))
                 .andExpect(status().isOk());
     }
 
