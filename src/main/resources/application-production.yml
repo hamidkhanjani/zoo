@@ -1,0 +1,6 @@
+app:
+  dynamodb:
+    endpoint: ${APP_DYNAMODB_ENDPOINT:http://dynamodb-local:8000}
+aws:
+  dynamodb:
+    createTablesOnStartup: false

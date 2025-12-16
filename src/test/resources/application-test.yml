@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: zoo-eurail
+
+# Ensure DynamoDB tables are created for tests
+aws:
+  dynamodb:
+    createTablesOnStartup: true
+
+# The endpoint/region are supplied dynamically by DynamoDbTestBase via app.dynamodb.*
+app:
+  dynamodb:
+    endpoint: http://localhost:8000
+    region: us-west-2
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

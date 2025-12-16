@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EKS cluster and managed node group for Zoo production
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: zoo-prod
+    Description: EKS cluster name
+  KubernetesVersion:
+    Type: String
+    Default: '1.29'
+    AllowedValues: ['1.27','1.28','1.29','1.30']
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Existing VPC Id to deploy EKS into
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of private subnet IDs for worker nodes
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of public subnet IDs (used by load balancers)
+  NodeGroupInstanceTypes:
+    Type: List<String>
+    Default: ['t3.medium']
+  NodeGroupDesiredSize:
+    Type: Number
+    Default: 2
+  NodeGroupMinSize:
+    Type: Number
+    Default: 1
+  NodeGroupMaxSize:
+    Type: Number
+    Default: 4
+
+Mappings: {}
+
+Resources:
+  EksRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: eks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+      Tags:
+        - Key: Project
+          Value: zoo
+        - Key: Env
+          Value: prod
+
+  EksCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Ref ClusterName
+      RoleArn: !GetAtt EksRole.Arn
+      Version: !Ref KubernetesVersion
+      ResourcesVpcConfig:
+        EndpointPublicAccess: true
+        EndpointPrivateAccess: true
+        SecurityGroupIds: []
+        SubnetIds: !Ref PrivateSubnetIds
+      KubernetesNetworkConfig:
+        IpFamily: ipv4
+      Logging:
+        ClusterLogging:
+          EnabledTypes:
+            - Type: api
+            - Type: audit
+            - Type: authenticator
+            - Type: controllerManager
+            - Type: scheduler
+      Tags:
+        Project: zoo
+        Env: prod
+
+  NodeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+      Tags:
+        - Key: Project
+          Value: zoo
+        - Key: Env
+          Value: prod
+
+  NodeInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref NodeRole
+
+  ManagedNodeGroup:
+    Type: AWS::EKS::Nodegroup
+    Properties:
+      ClusterName: !Ref EksCluster
+      NodeRole: !GetAtt NodeRole.Arn
+      ScalingConfig:
+        DesiredSize: !Ref NodeGroupDesiredSize
+        MinSize: !Ref NodeGroupMinSize
+        MaxSize: !Ref NodeGroupMaxSize
+      Subnets: !Ref PrivateSubnetIds
+      AmiType: AL2_x86_64
+      CapacityType: ON_DEMAND
+      InstanceTypes: !Ref NodeGroupInstanceTypes
+      Tags:
+        Project: zoo
+        Env: prod
+
+  OidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: !Select [1, !Split ['//', !GetAtt EksCluster.OpenIdConnectIssuerUrl]]
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - '9e99a48a9960b14926bb7f3b02e22da0afd10df6'
+
+Outputs:
+  ClusterName:
+    Value: !Ref ClusterName
+  ClusterArn:
+    Value: !Ref EksCluster
+  ClusterOidcIssuer:
+    Value: !GetAtt EksCluster.OpenIdConnectIssuerUrl
+  NodeInstanceRoleArn:
+    Value: !GetAtt NodeRole.Arn

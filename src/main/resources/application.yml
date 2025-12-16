@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: zoo-eurail
+  profiles:
+    active: dev
+
+# Shared DynamoDB settings (overrides per profile)
+app:
+  dynamodb:
+    region: us-west-2
+
+# RepositoryConfig defaults (can be overridden per environment)
+    table-prefix: ""
+    tables:
+      animals: animals
+      rooms: rooms
+    indexes:
+      animals:
+        title: gsi_title
+        room-id: gsi_roomId
+    consistent-read: false
+
+  # Caching (defaults). You can switch to Redis later by adding the Redis starter and providing a Redis CacheManager.
+  cache:
+    type: caffeine
+    ttl:
+      animals-by-id: 10m
+      rooms-by-id: 10m
+      favorites-agg: 60s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+# OpenAPI
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+

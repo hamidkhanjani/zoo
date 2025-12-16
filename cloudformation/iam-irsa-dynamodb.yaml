@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IRSA role and policy to allow the Zoo app in EKS to access DynamoDB tables
+
+Parameters:
+  OIDCProviderArn:
+    Type: String
+    Description: The ARN of the EKS cluster OIDC provider (see eks.yaml or AWS Console)
+  OIDCSubKey:
+    Type: String
+    Description: Full claim key for sub, e.g., oidc.eks.<region>.amazonaws.com/id/<hash>:sub
+  OIDCAudKey:
+    Type: String
+    Description: Full claim key for aud, e.g., oidc.eks.<region>.amazonaws.com/id/<hash>:aud
+  ServiceAccountNamespace:
+    Type: String
+    Default: default
+  ServiceAccountName:
+    Type: String
+    Default: zoo-app
+  AnimalsTableArn:
+    Type: String
+    Description: ARN of the animals table
+  RoomsTableArn:
+    Type: String
+    Description: ARN of the rooms table
+
+Resources:
+  AppDynamoDbPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allow CRUD and Query/Scan on Zoo DynamoDB tables
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !Ref AnimalsTableArn
+              - !Ref RoomsTableArn
+              - !Sub '${AnimalsTableArn}/index/*'
+              - !Sub '${RoomsTableArn}/index/*'
+
+  AppIrsaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                Fn::Transform:
+                  Name: AWS::LanguageExtensions
+                  Parameters:
+                placeholder-sub-key: !Sub 'system:serviceaccount:${ServiceAccountNamespace}:${ServiceAccountName}'
+                placeholder-aud-key: 'sts.amazonaws.com'
+      ManagedPolicyArns:
+        - !Ref AppDynamoDbPolicy
+      Description: IRSA role for zoo app to access DynamoDB
+
+Conditions: {}
+
+Mappings: {}
+
+Outputs:
+  AppIrsaRoleArn:
+    Value: !GetAtt AppIrsaRole.Arn

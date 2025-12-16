@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR repository for Zoo application container images
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: zoo-eurail
+  ImageScanOnPush:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true','false']
+  Mutability:
+    Type: String
+    Default: IMMUTABLE
+    AllowedValues: [MUTABLE, IMMUTABLE]
+
+Resources:
+  ZooRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: !Equals [!Ref ImageScanOnPush, 'true']
+      ImageTagMutability: !Ref Mutability
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 30 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 30
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt ZooRepository.RepositoryUri
+  RepositoryName:
+    Value: !Ref ZooRepository

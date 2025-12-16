@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB tables for Zoo production (animals, rooms) with required GSIs
+
+Parameters:
+  TablePrefix:
+    Type: String
+    Default: ''
+    Description: Optional prefix for table names (e.g., prod_)
+  AnimalsTableName:
+    Type: String
+    Default: animals
+  RoomsTableName:
+    Type: String
+    Default: rooms
+  BillingMode:
+    Type: String
+    Default: PAY_PER_REQUEST
+    AllowedValues: [PROVISIONED, PAY_PER_REQUEST]
+
+Resources:
+  AnimalsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${TablePrefix}${AnimalsTableName}'
+      BillingMode: !Ref BillingMode
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: title
+          AttributeType: S
+        - AttributeName: roomId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: gsi_title
+          KeySchema:
+            - AttributeName: title
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: gsi_roomId
+          KeySchema:
+            - AttributeName: roomId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  RoomsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${TablePrefix}${RoomsTableName}'
+      BillingMode: !Ref BillingMode
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+Outputs:
+  AnimalsTableNameOut:
+    Value: !Ref AnimalsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-AnimalsTableName'
+  RoomsTableNameOut:
+    Value: !Ref RoomsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-RoomsTableName'
