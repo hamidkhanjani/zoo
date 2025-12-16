@@ -2,7 +2,6 @@ package com.eurail.zooeurail.service;
 
 import com.eurail.zooeurail.model.Animal;
 import com.eurail.zooeurail.repository.AnimalRepository;
-import com.eurail.zooeurail.repository.RoomRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,8 +21,6 @@ class AnimalServiceTest {
     @Mock
     AnimalRepository animalRepository;
 
-    @Mock
-    RoomRepository roomRepository;
 
     @InjectMocks
     AnimalService animalService;
