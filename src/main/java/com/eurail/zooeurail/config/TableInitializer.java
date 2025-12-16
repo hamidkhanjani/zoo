@@ -15,7 +15,6 @@ import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.Projection;
 import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
@@ -60,12 +59,12 @@ public class TableInitializer {
                                 GlobalSecondaryIndex.builder()
                                         .indexName("gsi_title")
                                         .keySchema(KeySchemaElement.builder().attributeName("title").keyType(KeyType.HASH).build())
-                                        .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                                        .projection(p -> p.projectionType(ProjectionType.ALL))
                                         .build(),
                                 GlobalSecondaryIndex.builder()
                                         .indexName("gsi_roomId")
                                         .keySchema(KeySchemaElement.builder().attributeName("roomId").keyType(KeyType.HASH).build())
-                                        .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                                        .projection(p -> p.projectionType(ProjectionType.ALL))
                                         .build()
                         )
                         .build();

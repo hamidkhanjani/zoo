@@ -7,8 +7,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 
 public class AnimalDynamoDbRepository implements AnimalRepository {
@@ -82,5 +81,34 @@ public class AnimalDynamoDbRepository implements AnimalRepository {
                 .flatMap(p -> p.items().stream())
                 .limit(limit)
                 .toList();
+    }
+
+    @Override
+    public Map<String, Long> aggregateFavoriteRoomCounts(Collection<String> roomIdsUniverse) {
+        return aggregateFavoriteRoomCountsInternal(roomIdsUniverse);
+    }
+
+    @Override
+    public Map<String, Long> aggregateFavoriteRoomCounts() {
+        return aggregateFavoriteRoomCountsInternal(null);
+    }
+
+    private Map<String, Long> aggregateFavoriteRoomCountsInternal(Collection<String> roomIdsUniverse) {
+        // Project only the favoriteRoomIds attribute to minimize IO; consistentRead as configured
+        var scanRequest = ScanEnhancedRequest.builder()
+                .consistentRead(consistentRead)
+                .attributesToProject("favoriteRoomIds")
+                .build();
+
+        java.util.Set<String> universe = (roomIdsUniverse == null) ? null : new java.util.HashSet<>(roomIdsUniverse);
+        java.util.Map<String, Long> counts = new java.util.HashMap<>();
+
+        table.scan(scanRequest).items().forEach(animal -> {
+            var favs = animal.getFavoriteRoomIds();
+            if (favs == null || favs.isEmpty()) return;
+            favs.stream().filter(Objects::nonNull).filter(rid -> universe == null || universe.contains(rid)).forEach(rid -> counts.merge(rid, 1L, Long::sum));
+        });
+
+        return counts;
     }
 }

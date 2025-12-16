@@ -23,7 +23,15 @@ spec:
       serviceAccountName: zoo-app
       containers:
         - name: zoo-app
-          image: <YOUR_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/zoo-eurail:latest
+          image: <YOUR_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/zoo-eurail:1.0.0
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+              ephemeral-storage: "1Gi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           ports:
             - containerPort: 8080
           env:
@@ -45,6 +53,7 @@ spec:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
+      automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: Service

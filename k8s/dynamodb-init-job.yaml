@@ -6,9 +6,18 @@ spec:
   template:
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
       containers:
         - name: awscli
           image: amazon/aws-cli:2.18.18
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
           env:
             - name: AWS_ACCESS_KEY_ID
               value: local

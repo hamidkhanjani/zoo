@@ -10,7 +10,7 @@ import org.springframework.cache.annotation.Caching;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 public class AnimalService extends BaseService<Animal> {
 
@@ -93,20 +93,13 @@ public class AnimalService extends BaseService<Animal> {
     }
 
     public Map<String, Long> favoriteRoomsAggregation(Collection<String> roomIdsUniverse) {
-        List<Animal> all = animalRepository.findAll();
-        Map<String, Long> counts = all.stream()
-                .flatMap(a -> a.getFavoriteRoomIds() == null ? java.util.stream.Stream.<String>empty() : a.getFavoriteRoomIds().stream())
-                .filter(Objects::nonNull)
-                .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+        // Delegate aggregation to repository which uses DynamoDB projection to minimize IO
+        return animalRepository.aggregateFavoriteRoomCounts(roomIdsUniverse);
+    }
 
-        // If a universe list is provided, include only those present in universe; otherwise return non-zero counts only
-        if (roomIdsUniverse != null) {
-            counts.keySet().retainAll(new java.util.HashSet<>(roomIdsUniverse));
-        }
-        // Remove zero counts (should not exist) and return map
-        return counts.entrySet().stream()
-                .filter(e -> e.getValue() != null && e.getValue() > 0)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    public Map<String, Long> favoriteRoomsAggregation() {
+        // No-universe variant to avoid passing nulls
+        return animalRepository.aggregateFavoriteRoomCounts();
     }
 
     /**
@@ -115,7 +108,7 @@ public class AnimalService extends BaseService<Animal> {
      */
     @Cacheable(cacheNames = "favoriteRoomsAggByTitle")
     public Map<String, Long> favoriteRoomsAggregationByRoomTitle() {
-        Map<String, Long> byId = favoriteRoomsAggregation(null);
+        Map<String, Long> byId = favoriteRoomsAggregation();
         if (byId.isEmpty()) return java.util.Collections.emptyMap();
 
         Map<String, Long> byTitle = new java.util.HashMap<>();

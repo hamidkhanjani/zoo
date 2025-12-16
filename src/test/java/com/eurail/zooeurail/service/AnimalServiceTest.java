@@ -127,15 +127,19 @@ class AnimalServiceTest {
 
     @Test
     void favoriteRoomsAggregation_counts_and_filters_by_universe() {
-        Animal a1 = new Animal(); a1.setId("a1"); a1.setTitle("A"); a1.setFavoriteRoomIds(new HashSet<>(List.of("r1", "r2")));
-        Animal a2 = new Animal(); a2.setId("a2"); a2.setTitle("B"); a2.setFavoriteRoomIds(new HashSet<>(List.of("r2")));
-        Animal a3 = new Animal(); a3.setId("a3"); a3.setTitle("C"); // no favorites
-        Animal a4 = new Animal(); a4.setId("a4"); a4.setTitle("D"); a4.setFavoriteRoomIds(new HashSet<>(java.util.Arrays.asList("r3", null)));
-        when(animalRepository.findAll()).thenReturn(List.of(a1, a2, a3, a4));
+        Map<String, Long> aggregated = new HashMap<>();
+        aggregated.put("r1", 1L);
+        aggregated.put("r2", 2L);
+        aggregated.put("r3", 1L);
+        when(animalRepository.aggregateFavoriteRoomCounts(null)).thenReturn(aggregated);
 
         Map<String, Long> counts = animalService.favoriteRoomsAggregation(null);
-        assertThat(counts).containsEntry("r1", 1L).containsEntry("r2", 2L).containsEntry("r3", 1L).doesNotContainKey("null");
+        assertThat(counts).containsEntry("r1", 1L).containsEntry("r2", 2L).containsEntry("r3", 1L);
 
+        Map<String, Long> filteredMap = new HashMap<>();
+        filteredMap.put("r2", 2L);
+        filteredMap.put("r3", 1L);
+        when(animalRepository.aggregateFavoriteRoomCounts(List.of("r2", "r3"))).thenReturn(filteredMap);
         Map<String, Long> filtered = animalService.favoriteRoomsAggregation(List.of("r2", "r3"));
         assertThat(filtered.keySet()).containsExactlyInAnyOrder("r2", "r3");
     }
