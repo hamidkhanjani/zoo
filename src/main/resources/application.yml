@@ -11,6 +11,11 @@ spring:
 app:
   dynamodb:
     region: us-west-2
+    # Local/dev defaults. For production, prefer IAM and set
+    # app.dynamodb.use-default-credentials=true (see application-production.yml)
+    access-key: local
+    secret-key: local
+    use-default-credentials: false
 
 # RepositoryConfig defaults (can be overridden per environment)
     table-prefix: ""

@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.regions.Region;
@@ -30,6 +32,20 @@ public class DynamoDbConfig {
     private String region;
 
     /**
+     * Optional explicit AWS credentials (for local/testing). If not provided and
+     * {@code app.dynamodb.use-default-credentials=true}, the default provider chain will be used
+     * (recommended for production: IAM role, environment, etc.).
+     */
+    @Value("${app.dynamodb.access-key:}")
+    private String accessKey;
+
+    @Value("${app.dynamodb.secret-key:}")
+    private String secretKey;
+
+    @Value("${app.dynamodb.use-default-credentials:false}")
+    private boolean useDefaultCredentials;
+
+    /**
      * Creates and configures a DynamoDB client bean for low-level operations.
      * <p>
      * The client is configured with:
@@ -47,12 +63,28 @@ public class DynamoDbConfig {
     public DynamoDbClient dynamoDbClient() {
         DynamoDbClientBuilder builder = DynamoDbClient.builder()
                 .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("local", "local")))
-                .endpointOverride(URI.create(endpoint));
+                .credentialsProvider(resolveCredentialsProvider());
+
+        // Apply endpoint override only if provided (e.g., DynamoDB Local)
+        if (endpoint != null && !endpoint.isBlank()) {
+            builder = builder.endpointOverride(URI.create(endpoint));
+        }
         DynamoDbClient client = builder.build();
         // Touch client early to fail-fast on misconfiguration
         client.listTables(ListTablesRequest.builder().limit(1).build());
         return client;
+    }
+
+    private AwsCredentialsProvider resolveCredentialsProvider() {
+        if (useDefaultCredentials) {
+            // Use the AWS Default Credentials Provider chain (best practice for prod)
+            return DefaultCredentialsProvider.create();
+        }
+        if (accessKey != null && !accessKey.isBlank() && secretKey != null && !secretKey.isBlank()) {
+            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
+        }
+        // Fallback for local development convenience
+        return StaticCredentialsProvider.create(AwsBasicCredentials.create("local", "local"));
     }
 
     /**

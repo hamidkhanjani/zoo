@@ -1,6 +1,7 @@
 app:
   dynamodb:
     endpoint: ${APP_DYNAMODB_ENDPOINT:http://dynamodb-local:8000}
+    use-default-credentials: true
   cache:
     type: redis
 aws:
