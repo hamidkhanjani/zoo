@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "aws.dynamodb.createTablesOnStartup=true"
 })
-public class AnimalRepositoryIT extends DynamoDbTestBase {
+class AnimalRepositoryIT extends DynamoDbTestBase {
 
     @Autowired
     AnimalRepository animalRepository;

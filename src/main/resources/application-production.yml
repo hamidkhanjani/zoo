@@ -1,6 +1,13 @@
 app:
   dynamodb:
     endpoint: ${APP_DYNAMODB_ENDPOINT:http://dynamodb-local:8000}
+  cache:
+    type: redis
 aws:
   dynamodb:
     createTablesOnStartup: false
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}

@@ -134,8 +134,7 @@ class AnimalServiceTest {
         when(animalRepository.findAll()).thenReturn(List.of(a1, a2, a3, a4));
 
         Map<String, Long> counts = animalService.favoriteRoomsAggregation(null);
-        assertThat(counts).containsEntry("r1", 1L).containsEntry("r2", 2L).containsEntry("r3", 1L);
-        assertThat(counts).doesNotContainKey("null");
+        assertThat(counts).containsEntry("r1", 1L).containsEntry("r2", 2L).containsEntry("r3", 1L).doesNotContainKey("null");
 
         Map<String, Long> filtered = animalService.favoriteRoomsAggregation(List.of("r2", "r3"));
         assertThat(filtered.keySet()).containsExactlyInAnyOrder("r2", "r3");

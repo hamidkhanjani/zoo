@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ElastiCache Redis (single-node, cluster mode disabled) for Zoo app
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where Redis will be deployed
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for ElastiCache Subnet Group (prefer private subnets)
+  NodeType:
+    Type: String
+    Default: cache.t4g.small
+    AllowedPattern: .+
+    Description: ElastiCache node type
+  EngineVersion:
+    Type: String
+    Default: '7.1'
+    Description: Redis engine version
+  CachePort:
+    Type: Number
+    Default: 6379
+    Description: Redis port
+  NumCacheNodes:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 1
+    Description: Number of cache nodes (1 for single-node)
+  WorkerNodeSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID of EKS worker nodes (allowed to access Redis)
+
+Resources:
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for ElastiCache Redis allowing access from EKS worker nodes
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref CachePort
+          ToPort: !Ref CachePort
+          SourceSecurityGroupId: !Ref WorkerNodeSecurityGroupId
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Redis subnet group
+      SubnetIds: !Ref SubnetIds
+
+  RedisParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties:
+      CacheParameterGroupFamily: redis7
+      Description: Parameter group for Redis 7
+      Properties:
+        # example tunables; keep default safe values
+        maxmemory-policy: allkeys-lru
+
+  RedisCacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: !Ref NodeType
+      Engine: redis
+      EngineVersion: !Ref EngineVersion
+      NumCacheNodes: !Ref NumCacheNodes
+      Port: !Ref CachePort
+      VpcSecurityGroupIds:
+        - !GetAtt RedisSecurityGroup.GroupId
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      CacheParameterGroupName: !Ref RedisParameterGroup
+      AutoMinorVersionUpgrade: true
+
+Outputs:
+  RedisEndpointAddress:
+    Description: Primary endpoint address for Redis
+    Value: !GetAtt RedisCacheCluster.ConfigurationEndpoint.Address
+  RedisEndpointPort:
+    Description: Endpoint port
+    Value: !GetAtt RedisCacheCluster.ConfigurationEndpoint.Port
+  RedisSecurityGroupId:
+    Description: Security Group ID used by Redis
+    Value: !GetAtt RedisSecurityGroup.GroupId
+  RedisSubnetGroupName:
+    Description: Redis Subnet Group name
+    Value: !Ref RedisSubnetGroup

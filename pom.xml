@@ -42,7 +42,11 @@
         <groupId>com.github.ben-manes.caffeine</groupId>
         <artifactId>caffeine</artifactId>
       </dependency>
-      <!-- To switch to Redis later, add: org.springframework.boot:spring-boot-starter-data-redis -->
+      <!-- Redis cache support -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+      </dependency>
         <!-- Web & Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

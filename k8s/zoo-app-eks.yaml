@@ -29,6 +29,10 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: production
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
           readinessProbe:
             httpGet:
               path: /actuator/health

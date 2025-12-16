@@ -3,6 +3,9 @@ spring:
     name: zoo-eurail
   profiles:
     active: dev
+  cache:
+    # We provide our own CacheManager bean; prevent Boot from auto-picking a type
+    type: none
 
 # Shared DynamoDB settings (overrides per profile)
 app:
@@ -38,6 +41,9 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    redis:
+      enabled: false
 
 # OpenAPI
 springdoc:

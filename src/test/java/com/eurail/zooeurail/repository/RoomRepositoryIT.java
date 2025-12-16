@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "aws.dynamodb.createTablesOnStartup=true"
 })
-public class RoomRepositoryIT extends DynamoDbTestBase {
+class RoomRepositoryIT extends DynamoDbTestBase {
 
     @Autowired
     RoomRepository roomRepository;

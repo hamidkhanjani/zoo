@@ -46,8 +46,7 @@ class ZooApplicationTests extends DynamoDbTestBase {
 
     @Test
     void end_to_end_smoke_flow() {
-        // Give DynamoDB Local a moment after table creation
-        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+
         // Create a room (persist directly via repository to avoid HTTP flakiness)
         Room room = new Room();
         room.setTitle("Green");
@@ -62,7 +61,6 @@ class ZooApplicationTests extends DynamoDbTestBase {
 
         // Place animal in the room
         LocalDate today = LocalDate.now();
-        try { Thread.sleep(200); } catch (InterruptedException ignored) {}
         ResponseEntity<Animal> placeResp = rest.postForEntity(
                 baseUrl + "/animals/" + tiger.getId() + "/place?roomId=" + room.getId() + "&located=" + today,
                 null,

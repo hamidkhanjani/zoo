@@ -13,6 +13,7 @@ Key features:
 Tech stack:
 - Java 21, Spring Boot 3.3.5
 - DynamoDB Local (AWS SDK v2 Enhanced Client)
+- Redis (optional; Caffeine in dev, Redis in production)
 - OpenAPI/Swagger UI
 - Docker & docker-compose
 - Kubernetes manifests (bonus)
@@ -28,7 +29,8 @@ Caching:
   - Mutations affecting an animal (create/update/delete/place/move/remove) `@CacheEvict` its `animalsById` entry.
   - Favorite-room aggregation by title is `@Cacheable` in `favoriteRoomsAggByTitle` and is evicted on favorite assign/unassign operations.
 - Notes:
-  - This setup is production-ready for a single instance. For multiple instances, replace the CacheManager with a distributed cache (e.g., Redis) while keeping the same cache names/annotations.
+  - Dev/test default: Caffeine. Production default: Redis (see `application-production.yml`).
+  - For multiple instances, Redis is recommended. This repo includes both Caffeine and Redis CacheManager via `app.cache.type`.
   - You can tune sizes/TTLs in `CacheConfig` or via `application.yml` without code changes.
 
 Profiles:
@@ -55,6 +57,11 @@ Kubernetes (bonus):
    ```
 3. Port-forward or expose the service as needed.
 
+Redis on Kubernetes:
+- A minimal Redis StatefulSet and Services are provided in `k8s/redis-statefulset.yaml`.
+- Apply it before the app (or together via `kubectl apply -f k8s/`). The Service DNS will be `redis.default.svc.cluster.local` (or `redis` within the same namespace).
+- The EKS app manifest (`k8s/zoo-app-eks.yaml`) sets `REDIS_HOST=redis` and `REDIS_PORT=6379`. The production profile uses Redis automatically.
+
 Production on AWS (EKS + CloudFormation):
 - The repo includes baseline CloudFormation templates and EKS-ready manifests to deploy the app with the `production` profile against AWS DynamoDB.
 
@@ -63,6 +70,7 @@ Stacks/templates:
 - `cloudformation/dynamodb.yaml` — Creates `animals` and `rooms` tables with GSIs `gsi_title` and `gsi_roomId` (PAY_PER_REQUEST by default).
 - `cloudformation/eks.yaml` — EKS cluster, managed node group, and OIDC provider (requires existing VPC + subnets).
 - `cloudformation/iam-irsa-dynamodb.yaml` — IAM role and policy for IRSA (ServiceAccount) to access DynamoDB (see notes below).
+- `cloudformation/elasticache-redis.yaml` — ElastiCache Redis (single-node) with Security Group ingress from your EKS worker node SG. Outputs the Redis endpoint and port.
 - `k8s/zoo-app-eks.yaml` — K8s ServiceAccount (IRSA), Deployment (uses `SPRING_PROFILES_ACTIVE=production`), and Service `LoadBalancer`.
 
 High-level steps (example):
@@ -145,15 +153,37 @@ High-level steps (example):
    ```
 
 6) Deploy the app to EKS:
-   - Edit `k8s/zoo-app-eks.yaml`: set your `role-arn` on the ServiceAccount annotation and the image to your ECR repo.
-   - Apply:
-     ```bash
-     kubectl apply -f k8s/zoo-app-eks.yaml
-     ```
-   - Get the service EXTERNAL-IP:
-     ```bash
-     kubectl get svc zoo-app
-     ```
+- Edit `k8s/zoo-app-eks.yaml`: set your `role-arn` on the ServiceAccount annotation and the image to your ECR repo.
+- Apply:
+  ```bash
+  kubectl apply -f k8s/zoo-app-eks.yaml
+  ```
+- Get the service EXTERNAL-IP:
+  ```bash
+  kubectl get svc zoo-app
+  ```
+
+7) (Optional) Provision ElastiCache Redis and point the app to it:
+```bash
+aws cloudformation deploy \
+  --stack-name zoo-redis \
+  --template-file cloudformation/elasticache-redis.yaml \
+  --parameter-overrides \
+    VpcId=vpc-xxxxxxxx \
+    SubnetIds=subnet-aaaa,subnet-bbbb \
+    WorkerNodeSecurityGroupId=sg-eksworkers \
+    NodeType=cache.t4g.small \
+    EngineVersion=7.1
+```
+Fetch the endpoint:
+```bash
+aws cloudformation describe-stacks --stack-name zoo-redis \
+  --query "Stacks[0].Outputs[?OutputKey=='RedisEndpointAddress'].OutputValue" --output text
+```
+Update `k8s/zoo-app-eks.yaml` to set `REDIS_HOST` to the ElastiCache endpoint DNS and apply again:
+```bash
+kubectl apply -f k8s/zoo-app-eks.yaml
+```
 
 Notes:
 - The production profile (`src/main/resources/application-production.yml`) disables table auto-creation and relies on AWS SDK default endpoint. Do not set `APP_DYNAMODB_ENDPOINT` in EKS.
@@ -163,6 +193,8 @@ Notes:
 DynamoDB Local:
 - Runs via docker-compose as `dynamodb-local` on port `8000`.
 - The app uses endpoint `http://dynamodb-local:8000` in Compose and `http://dynamodb-local:8000` in Kubernetes via Service DNS.
+Redis Local (K8s):
+- The app connects to `redis:6379` inside the cluster by default (see `application-production.yml` and EKS manifest env).
 
 Notes on data model:
 - An `Animal` has a single current `roomId` (or `null`). A `Room` can contain many animals.
