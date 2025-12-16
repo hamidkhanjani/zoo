@@ -5,6 +5,7 @@ import com.eurail.zooeurail.repository.AnimalRepository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -65,6 +66,21 @@ public class AnimalDynamoDbRepository implements AnimalRepository {
                 .query(r -> r.queryConditional(QueryConditional.keyEqualTo(k -> k.partitionValue(roomId))));
         return pages.stream()
                 .flatMap(p -> p.items().stream())
+                .toList();
+    }
+
+    @Override
+    public List<Animal> findByRoomIdFirstN(String roomId, int limit) {
+        if (limit <= 0) return java.util.Collections.emptyList();
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(k -> k.partitionValue(roomId)))
+                .limit(limit)
+                .build();
+        var pages = table.index(roomIdIndexName).query(request);
+        // Flatten page items and stop when we reach the requested limit
+        return pages.stream()
+                .flatMap(p -> p.items().stream())
+                .limit(limit)
                 .toList();
     }
 }

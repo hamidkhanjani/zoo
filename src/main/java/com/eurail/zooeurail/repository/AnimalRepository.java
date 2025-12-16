@@ -12,4 +12,10 @@ public interface AnimalRepository extends BaseRepository<Animal> {
 
     /** Find animals by room id using GSI (no scan). */
     List<Animal> findByRoomId(String roomId);
+
+    /**
+     * Find up to the first N animals by room id using GSI (no scan), leveraging DynamoDB pagination under the hood.
+     * This method will only fetch as many pages as needed to accumulate the requested limit.
+     */
+    List<Animal> findByRoomIdFirstN(String roomId, int limit);
 }

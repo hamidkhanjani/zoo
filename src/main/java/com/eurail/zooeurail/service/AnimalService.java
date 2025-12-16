@@ -69,8 +69,11 @@ public class AnimalService extends BaseService<Animal> {
     }
 
     public List<Animal> getAnimalsInRoom(String roomId, String sortBy, String order, int page, int size) {
-        // Fetch animals using GSI by roomId (no full scan)
-        List<Animal> all = animalRepository.findByRoomId(roomId);
+        int required = Math.max(0, (page + 1) * size);
+        if (required == 0) return java.util.Collections.emptyList();
+
+        // Fetch only as many as needed using DynamoDB pagination via repository
+        List<Animal> firstN = animalRepository.findByRoomIdFirstN(roomId, required);
 
         Comparator<Animal> comparator;
         if ("located".equalsIgnoreCase(sortBy)) {
@@ -82,11 +85,11 @@ public class AnimalService extends BaseService<Animal> {
             comparator = comparator.reversed();
         }
 
-        return all.stream()
-                .sorted(comparator)
-                .skip((long) page * size)
-                .limit(size)
-                .toList();
+        List<Animal> sorted = firstN.stream().sorted(comparator).toList();
+        int from = Math.min(sorted.size(), page * size);
+        int to = Math.min(sorted.size(), from + size);
+        if (from >= to) return java.util.Collections.emptyList();
+        return sorted.subList(from, to);
     }
 
     public Map<String, Long> favoriteRoomsAggregation(Collection<String> roomIdsUniverse) {

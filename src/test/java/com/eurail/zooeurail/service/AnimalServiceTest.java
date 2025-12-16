@@ -98,7 +98,7 @@ class AnimalServiceTest {
         Animal a = new Animal(); a.setId("a"); a.setTitle("Ant");
         Animal b = new Animal(); b.setId("b"); b.setTitle("Bear");
         Animal c = new Animal(); c.setId("c"); c.setTitle("cat"); // lower case to test case-insensitive
-        when(animalRepository.findByRoomId("r1")).thenReturn(List.of(c, b, a));
+        when(animalRepository.findByRoomIdFirstN(eq("r1"), anyInt())).thenReturn(List.of(c, b, a));
 
         List<Animal> page0 = animalService.getAnimalsInRoom("r1", "title", "asc", 0, 2);
         assertThat(page0).extracting(Animal::getTitle).containsExactly("Ant", "Bear");
@@ -115,7 +115,7 @@ class AnimalServiceTest {
         Animal a = new Animal(); a.setId("a"); a.setTitle("A"); a.setLocated(LocalDate.of(2024,1,1));
         Animal b = new Animal(); b.setId("b"); b.setTitle("B"); b.setLocated(LocalDate.of(2024,1,5));
         Animal c = new Animal(); c.setId("c"); c.setTitle("C"); // located null
-        when(animalRepository.findByRoomId("r1")).thenReturn(List.of(c, b, a));
+        when(animalRepository.findByRoomIdFirstN(eq("r1"), anyInt())).thenReturn(List.of(c, b, a));
 
         List<Animal> asc = animalService.getAnimalsInRoom("r1", "located", "asc", 0, 10);
         assertThat(asc).extracting(Animal::getId).containsExactly("a", "b", "c");
