@@ -20,6 +20,16 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 
+/**
+ * Component responsible for initializing DynamoDB tables on application startup.
+ * <p>
+ * This component is active only in "dev" and "test" profiles and when the property
+ * {@code aws.dynamodb.createTablesOnStartup} is set to {@code true} (default).
+ * <p>
+ * It ensures that the required DynamoDB tables ("animals" and "rooms") exist,
+ * creating them if they are not found. The "animals" table includes Global Secondary Indexes
+ * for querying by title and roomId.
+ */
 @Component
 @RequiredArgsConstructor
 @Profile({"dev", "test"})
@@ -29,12 +39,26 @@ public class TableInitializer {
 
     private final DynamoDbClient dynamoDbClient;
 
+    /**
+     * Initializes the required DynamoDB tables on application startup.
+     * <p>
+     * This method is automatically invoked after dependency injection is complete.
+     * It ensures that the "animals" and "rooms" tables exist in DynamoDB.
+     */
     @PostConstruct
     public void init() {
         ensureTable("animals");
         ensureTable("rooms");
     }
 
+    /**
+     * Ensures that a DynamoDB table exists, creating it if necessary.
+     * <p>
+     * For the "animals" table, this method creates Global Secondary Indexes on "title" and "roomId".
+     * For other tables (e.g., "rooms"), it creates a simple table with only a primary key.
+     *
+     * @param tableName the name of the table to ensure exists
+     */
     private void ensureTable(String tableName) {
         try {
             dynamoDbClient.describeTable(DescribeTableRequest.builder().tableName(tableName).build());

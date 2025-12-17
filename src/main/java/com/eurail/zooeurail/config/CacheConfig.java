@@ -20,27 +20,75 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Cache configuration for the Zoo application.
+ * <p>
+ * This configuration enables caching and provides a flexible cache manager
+ * that can be backed by either Caffeine (in-memory) or Redis, depending on
+ * the {@code app.cache.type} property.
+ * <p>
+ * Three caches are configured with customizable TTLs:
+ * <ul>
+ *   <li>{@code animalsById} - Caches animal entities by ID</li>
+ *   <li>{@code roomsById} - Caches room entities by ID</li>
+ *   <li>{@code favoriteRoomsAggByTitle} - Caches aggregated favorite room counts</li>
+ * </ul>
+ */
 @Configuration
 @EnableCaching
 public class CacheConfig {
 
+    /**
+     * The cache type to use: "caffeine" (default) or "redis".
+     */
     @Value("${app.cache.type:caffeine}")
     private String cacheType;
 
-    // TTLs (can be overridden via properties if needed later)
+    /**
+     * Time-to-live for the animalsById cache.
+     * Default is 10 minutes.
+     */
     @Value("${app.cache.ttl.animals-by-id:10m}")
     private Duration animalsByIdTtl;
 
+    /**
+     * Time-to-live for the roomsById cache.
+     * Default is 10 minutes.
+     */
     @Value("${app.cache.ttl.rooms-by-id:10m}")
     private Duration roomsByIdTtl;
 
+    /**
+     * Time-to-live for the favoriteRoomsAggByTitle cache.
+     * Default is 60 seconds.
+     */
     @Value("${app.cache.ttl.favorites-agg:60s}")
     private Duration favoritesAggTtl;
 
+    /**
+     * Cache name for animal entities indexed by ID.
+     */
     private static final String ANIMALS_BY_ID = "animalsById";
+
+    /**
+     * Cache name for room entities indexed by ID.
+     */
     private static final String ROOMS_BY_ID = "roomsById";
+
+    /**
+     * Cache name for aggregated favorite room counts indexed by title.
+     */
     private static final String FAVORITES_AGG_BY_TITLE = "favoriteRoomsAggByTitle";
 
+    /**
+     * Creates and configures the cache manager based on the configured cache type.
+     * <p>
+     * If {@code app.cache.type} is set to "redis", a Redis-backed cache manager is created.
+     * Otherwise, a Caffeine-backed (in-memory) cache manager is used.
+     *
+     * @param redisConnectionFactory the Redis connection factory (required for Redis cache)
+     * @return the configured cache manager
+     */
     @Bean
     @ConditionalOnMissingBean(CacheManager.class)
     public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
@@ -50,6 +98,18 @@ public class CacheConfig {
         return caffeineCacheManager();
     }
 
+    /**
+     * Creates a Caffeine-backed cache manager with per-cache specifications.
+     * <p>
+     * Configures three caches:
+     * <ul>
+     *   <li>{@code animalsById} - Max 5,000 entries</li>
+     *   <li>{@code roomsById} - Max 2,000 entries</li>
+     *   <li>{@code favoriteRoomsAggByTitle} - Max 100 entries</li>
+     * </ul>
+     *
+     * @return a SimpleCacheManager with Caffeine caches
+     */
     private CacheManager caffeineCacheManager() {
         // Default to Caffeine with per-cache specs via SimpleCacheManager.
         SimpleCacheManager manager = new SimpleCacheManager();
@@ -76,6 +136,15 @@ public class CacheConfig {
         return manager;
     }
 
+    /**
+     * Creates a Redis-backed cache manager with JSON serialization for values.
+     * <p>
+     * Configures custom TTLs for each cache and uses transaction-aware caching.
+     * Values are serialized using Jackson JSON serialization while keys remain as strings.
+     *
+     * @param connectionFactory the Redis connection factory
+     * @return a RedisCacheManager with custom configurations
+     */
     private CacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
         // Use JSON for values; keep string keys
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer();

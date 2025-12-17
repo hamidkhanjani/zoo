@@ -1,4 +1,4 @@
-### Zoo Eurail — Spring Boot + DynamoDB Local
+### Zoo — Spring Boot + DynamoDB Local
 
 This project implements a simple backend-only web application for managing a Zoo with Rooms and Animals.
 
@@ -34,7 +34,7 @@ Caching:
   - You can tune sizes/TTLs in `CacheConfig` or via `application.yml` without code changes.
 
 Profiles:
-- `dev` (default/local)
+- `dev` (local)
 - `production`
 
 Run locally (Docker Compose):
@@ -195,7 +195,3 @@ DynamoDB Local:
 - The app uses endpoint `http://dynamodb-local:8000` in Compose and `http://dynamodb-local:8000` in Kubernetes via Service DNS.
 Redis Local (K8s):
 - The app connects to `redis:6379` inside the cluster by default (see `application-production.yml` and EKS manifest env).
-
-Notes on data model:
-- An `Animal` has a single current `roomId` (or `null`). A `Room` can contain many animals.
-- Favorite rooms are kept as a set of `roomId`s on the `Animal`.

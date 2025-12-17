@@ -16,6 +16,32 @@ import software.amazon.awssdk.services.dynamodb.model.ListTablesRequest;
 import java.net.URI;
 
 
+/**
+ * Spring configuration class for DynamoDB client setup.
+ * <p>
+ * This configuration provides beans for both low-level {@link DynamoDbClient} and
+ * enhanced {@link DynamoDbEnhancedClient} operations. It supports flexible credential
+ * configuration for different environments:
+ * </p>
+ * <ul>
+ *   <li>Local development with static credentials or DynamoDB Local</li>
+ *   <li>Production with AWS Default Credentials Provider chain (IAM roles, environment variables, etc.)</li>
+ *   <li>Custom endpoint override for local testing</li>
+ * </ul>
+ * <p>
+ * Configuration properties:
+ * </p>
+ * <ul>
+ *   <li>{@code app.dynamodb.endpoint} - Custom endpoint URL (e.g., for DynamoDB Local)</li>
+ *   <li>{@code app.dynamodb.region} - AWS region for the client</li>
+ *   <li>{@code app.dynamodb.access-key} - Explicit AWS access key (optional)</li>
+ *   <li>{@code app.dynamodb.secret-key} - Explicit AWS secret key (optional)</li>
+ *   <li>{@code app.dynamodb.use-default-credentials} - Whether to use AWS default credentials chain</li>
+ * </ul>
+ *
+ * @see DynamoDbClient
+ * @see DynamoDbEnhancedClient
+ */
 @Configuration
 public class DynamoDbConfig {
 
@@ -39,9 +65,17 @@ public class DynamoDbConfig {
     @Value("${app.dynamodb.access-key:}")
     private String accessKey;
 
+    /**
+     * AWS secret key for explicit credential configuration.
+     */
     @Value("${app.dynamodb.secret-key:}")
     private String secretKey;
 
+    /**
+     * Flag indicating whether to use the AWS Default Credentials Provider chain.
+     * When {@code true}, the client will use IAM roles, environment variables, or
+     * other standard AWS credential sources. Defaults to {@code false}.
+     */
     @Value("${app.dynamodb.use-default-credentials:false}")
     private boolean useDefaultCredentials;
 
@@ -75,6 +109,20 @@ public class DynamoDbConfig {
         return client;
     }
 
+    /**
+     * Resolves the appropriate AWS credentials provider based on configuration.
+     * <p>
+     * The resolution logic follows this priority:
+     * </p>
+     * <ol>
+     *   <li>If {@code useDefaultCredentials} is {@code true}, use {@link DefaultCredentialsProvider}
+     *       which follows the AWS default credential provider chain</li>
+     *   <li>If explicit {@code accessKey} and {@code secretKey} are provided, use static credentials</li>
+     *   <li>Fallback to local development credentials ("local"/"local") for convenience</li>
+     * </ol>
+     *
+     * @return the configured {@link AwsCredentialsProvider}
+     */
     private AwsCredentialsProvider resolveCredentialsProvider() {
         if (useDefaultCredentials) {
             // Use the AWS Default Credentials Provider chain (best practice for prod)
