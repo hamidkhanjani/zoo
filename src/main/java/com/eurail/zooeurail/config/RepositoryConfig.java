@@ -59,8 +59,8 @@ public class RepositoryConfig {
     }
 
     @Bean
-    public AnimalService animalService(AnimalRepository repo, RoomRepository roomRepository) {
-        return new AnimalService(repo, roomRepository);
+    public AnimalService animalService(AnimalRepository repo, RoomService roomService) {
+        return new AnimalService(repo, roomService);
     }
 
     @Bean

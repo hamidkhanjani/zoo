@@ -3,7 +3,6 @@ package com.eurail.zooeurail.service;
 import com.eurail.zooeurail.model.Animal;
 import com.eurail.zooeurail.model.Room;
 import com.eurail.zooeurail.repository.AnimalRepository;
-import com.eurail.zooeurail.repository.RoomRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -11,21 +10,20 @@ import org.springframework.cache.annotation.Caching;
 import java.time.LocalDate;
 import java.util.*;
 
-
 public class AnimalService extends BaseService<Animal> {
 
-    private final RoomRepository roomRepository;
+    private final RoomService roomService;
     private final AnimalRepository animalRepository;
 
-    public AnimalService(AnimalRepository animalRepository, RoomRepository roomRepository) {
+    public AnimalService(AnimalRepository animalRepository, RoomService roomService) {
         super(animalRepository);
-        this.roomRepository = roomRepository;
+        this.roomService = roomService;
         this.animalRepository = animalRepository;
     }
 
     @CacheEvict(cacheNames = {"animalsById"}, key = "#animalId")
     public Optional<Animal> placeInRoom(String animalId, String roomId, LocalDate located) {
-        return get(animalId).map(a -> {
+        return animalRepository.findById(animalId).map(a -> {
             a.setRoomId(roomId);
             a.setLocated(located != null ? located : LocalDate.now());
             return repository.save(a);
@@ -39,7 +37,7 @@ public class AnimalService extends BaseService<Animal> {
 
     @CacheEvict(cacheNames = {"animalsById"}, key = "#animalId")
     public Optional<Animal> removeFromRoom(String animalId) {
-        return get(animalId).map(a -> {
+        return animalRepository.findById(animalId).map(a -> {
             a.setRoomId(null);
             a.setLocated(null);
             return repository.save(a);
@@ -51,8 +49,10 @@ public class AnimalService extends BaseService<Animal> {
             @CacheEvict(cacheNames = "favoriteRoomsAggByTitle", allEntries = true)
     })
     public Optional<Animal> assignFavorite(String animalId, String roomId) {
-        return get(animalId).map(a -> {
-            a.getFavoriteRoomIds().add(roomId);
+        return animalRepository.findById(animalId).map(a -> {
+            Set<String> favs = new HashSet<>(Optional.ofNullable(a.getFavoriteRoomIds()).orElseGet(Set::of));
+            favs.add(roomId);
+            a.setFavoriteRoomIds(favs);
             return repository.save(a);
         });
     }
@@ -62,64 +62,94 @@ public class AnimalService extends BaseService<Animal> {
             @CacheEvict(cacheNames = "favoriteRoomsAggByTitle", allEntries = true)
     })
     public Optional<Animal> unassignFavorite(String animalId, String roomId) {
-        return get(animalId).map(a -> {
-            a.getFavoriteRoomIds().remove(roomId);
+        return animalRepository.findById(animalId).map(a -> {
+            Set<String> favs = new HashSet<>(Optional.ofNullable(a.getFavoriteRoomIds()).orElseGet(Set::of));
+            favs.remove(roomId);
+            a.setFavoriteRoomIds(favs);
             return repository.save(a);
         });
     }
 
     public List<Animal> getAnimalsInRoom(String roomId, String sortBy, String order, int page, int size) {
-        int required = Math.max(0, (page + 1) * size);
-        if (required == 0) return java.util.Collections.emptyList();
+        if (size <= 0 || page < 0) return java.util.Collections.emptyList();
 
-        // Fetch only as many as needed using DynamoDB pagination via repository
+        SortField sortField = SortField.from(sortBy);
+        SortOrder sortOrder = SortOrder.from(order);
+
+        long requiredLong = (long) (page + 1) * (long) size;
+        if (requiredLong <= 0L) return java.util.Collections.emptyList();
+        int required = (requiredLong > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) requiredLong;
+
         List<Animal> firstN = animalRepository.findByRoomIdFirstN(roomId, required);
 
-        Comparator<Animal> comparator;
-        if ("located".equalsIgnoreCase(sortBy)) {
-            comparator = Comparator.comparing(Animal::getLocated, Comparator.nullsLast(Comparator.naturalOrder()));
-        } else { // default title
-            comparator = Comparator.comparing(Animal::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
-        }
-        if ("desc".equalsIgnoreCase(order)) {
-            comparator = comparator.reversed();
-        }
+        Comparator<Animal> comparator = comparatorFor(sortField, sortOrder);
 
         List<Animal> sorted = firstN.stream().sorted(comparator).toList();
-        int from = Math.min(sorted.size(), page * size);
+        int from = Math.min(sorted.size(), Math.multiplyExact(page, size));
         int to = Math.min(sorted.size(), from + size);
         if (from >= to) return java.util.Collections.emptyList();
         return sorted.subList(from, to);
     }
 
     public Map<String, Long> favoriteRoomsAggregation(Collection<String> roomIdsUniverse) {
-        // Delegate aggregation to repository which uses DynamoDB projection to minimize IO
         return animalRepository.aggregateFavoriteRoomCounts(roomIdsUniverse);
     }
 
     public Map<String, Long> favoriteRoomsAggregation() {
-        // No-universe variant to avoid passing nulls
         return animalRepository.aggregateFavoriteRoomCounts();
     }
 
     /**
      * Aggregation of favorite rooms keyed by room title instead of id.
      * Rooms with no favorites are excluded. If a room id has no matching room (deleted), it is skipped.
+     * Uses RoomService to leverage roomsById cache and reduce DynamoDB calls.
      */
     @Cacheable(cacheNames = "favoriteRoomsAggByTitle")
     public Map<String, Long> favoriteRoomsAggregationByRoomTitle() {
         Map<String, Long> byId = favoriteRoomsAggregation();
         if (byId.isEmpty()) return java.util.Collections.emptyMap();
 
-        Map<String, Long> byTitle = new java.util.HashMap<>();
-        for (Map.Entry<String, Long> e : byId.entrySet()) {
-            String roomId = e.getKey();
-            Long count = e.getValue();
-            roomRepository.findById(roomId)
-                    .map(Room::getTitle)
-                    .ifPresent(title -> byTitle.merge(title, count, Long::sum));
+        Map<String, Long> byTitle = new HashMap<>();
+
+        byId.entrySet().stream()
+                .filter(e -> e.getKey() != null)
+                .filter(e -> e.getValue() != null && e.getValue() > 0)
+                .forEach(e -> roomService.get(e.getKey())
+                        .map(Room::getTitle)
+                        .filter(title -> !title.isBlank())
+                        .ifPresent(title -> byTitle.merge(title, e.getValue(), Long::sum)));
+
+        return byTitle.isEmpty() ? java.util.Collections.emptyMap() : java.util.Map.copyOf(byTitle);
+    }
+
+    private static Comparator<Animal> comparatorFor(SortField sortField, SortOrder sortOrder) {
+        Comparator<Animal> base = switch (sortField) {
+            case LOCATED -> Comparator.comparing(Animal::getLocated, Comparator.nullsLast(Comparator.naturalOrder()));
+            case TITLE -> Comparator.comparing(Animal::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
+        };
+
+        // Important for stable pagination (avoid “random” ordering for equal fields)
+        base = base.thenComparing(Animal::getId, Comparator.nullsLast(String::compareToIgnoreCase));
+
+        return (sortOrder == SortOrder.DESC) ? base.reversed() : base;
+    }
+
+    private enum SortField {
+        TITLE, LOCATED;
+
+        static SortField from(String raw) {
+            if ("located".equalsIgnoreCase(raw)) return LOCATED;
+            return TITLE;
         }
-        return byTitle;
+    }
+
+    private enum SortOrder {
+        ASC, DESC;
+
+        static SortOrder from(String raw) {
+            if ("desc".equalsIgnoreCase(raw)) return DESC;
+            return ASC;
+        }
     }
 
     // Cache-enabled overrides for CRUD paths

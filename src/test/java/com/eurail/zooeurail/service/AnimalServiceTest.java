@@ -21,6 +21,8 @@ class AnimalServiceTest {
     @Mock
     AnimalRepository animalRepository;
 
+    @Mock
+    RoomService roomService;
 
     @InjectMocks
     AnimalService animalService;
